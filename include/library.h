@@ -5,27 +5,27 @@
 #define MODE_NEG 0
 #define MODE_SLICE 1 
 
-struct PGM {
+typedef struct {
   int w, h, maxv; // maxv = 255 
   unsigned char* data; // w*h bytes (grayscale)
-}; 
+} PGM; 
 
-struct Header {
+typedef struct {
   int w, h, maxv; // image metadata
   int mode; // 0=NEGATIVE, 1=SLICE 
   int t1, t2; // valid if mode=SLICE 
-};
+} Header;
 
-struct Task { 
+typedef struct { 
   int row_start; 
   int row_end; 
-};
+} Task ;
 
 /* ===== I/O of PGM ===== */ 
 
-// int read_pgm(const char* path, PGM* img); 
+int read_pgm(const char* path, PGM* img); 
 
-// int write_pgm(const char* path, const PGM* img); 
+int write_pgm(const char* path, const PGM* img); 
 
 /* ===== FIFO ===== */ 
 
