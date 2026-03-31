@@ -1,24 +1,32 @@
 #ifndef LIBRARY_H
 #define LIBRARY_H
 
+#include <stdint.h>
+
 /* ===== Constants ===== */ 
-#define MODE_NEG 0
-#define MODE_SLICE 1 
+// #define MODE_NEG 0
+// #define MODE_SLICE 1 
+
+typedef enum Mode{
+  MODE_NEG, MODE_SLICE
+} Mode;
 
 typedef struct {
-  int w, h, maxv; // maxv = 255 
+  uint32_t w, h; 
+  uint8_t maxv; // maxv = 255 
   unsigned char* data; // w*h bytes (grayscale)
 } PGM; 
 
 typedef struct {
-  int w, h, maxv; // image metadata
-  int mode; // 0=NEGATIVE, 1=SLICE 
-  int t1, t2; // valid if mode=SLICE 
+  uint32_t w, h;
+  uint8_t maxv; // image metadata
+  Mode mode ; // 0=NEGATIVE, 1=SLICE 
+  int32_t t1, t2; // valid if mode=SLICE 
 } Header;
 
 typedef struct { 
-  int row_start; 
-  int row_end; 
+  uint32_t row_start; 
+  uint32_t row_end; 
 } Task ;
 
 /* ===== I/O of PGM ===== */ 
@@ -30,7 +38,4 @@ int write_pgm(const char* path, const PGM* img);
 /* ===== FIFO ===== */ 
 
 const char* FIFO_PATH = "/tmp/imgpipe";
-
-void test_print_function();
-
 #endif
