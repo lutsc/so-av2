@@ -1,6 +1,7 @@
 #include "library.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 // typedef struct {
 //   uint32_t w, h; 
@@ -76,6 +77,30 @@ int read_pgm(const char* path, PGM* img)
 int write_pgm(const char* path, const PGM* img)
 {
   FILE * fd = fopen(path, "wb");
+
+  const char * magic_number = "P5 ";
+  char width[32];
+  char height[32];
+  char maxv[32];
+
+  sprintf(width, "%d ", img->w);
+  sprintf(height, "%d\n", img->h);
+  sprintf(maxv, "%d\n", img->maxv);
+
+  fwrite(magic_number, sizeof(char), strlen(width), fd);
+  fwrite(width, sizeof(char), strlen(width), fd);
+  fwrite(height, sizeof(char), strlen(width), fd);
+  fwrite(maxv, sizeof(char), strlen(width), fd);
+
+  uint8_t temp;
+  for(size_t i = 0; i < img->h; i++)
+  {
+    for(size_t j = 0; j < img->w; j++)
+    {
+      temp = img->data[j + ((img->w-1)*i)];
+      fwrite(&temp, sizeof(char), strlen(width), fd);
+    }
+  }
 
   fclose(fd);
   return 0;
