@@ -1,36 +1,28 @@
 #include <stdio.h>
 #include <string.h>
 
-#define W_INT 1366
-#define H_INT 768
-
-#define W "1366 "
-#define H "768\n"
-#define MAXV "255\n"
+#define W 1366
+#define H 768
+#define MAXV 255
 
 int main()
 {
-  FILE * FD = fopen("output.pgm", "wb");
+  FILE * fd = fopen("output.pgm", "wb");
 
-  const char * magic_number = "P5 ";
-  const char * width = W;
-  const char * height = H;
-  const char * maxv = MAXV;
-
-  fwrite(magic_number, sizeof(char), strlen(magic_number),FD);
-  fwrite(width, sizeof(char), strlen(width),FD);
-  fwrite(height, sizeof(char), strlen(height),FD);
-  fwrite(maxv, sizeof(char), strlen(maxv),FD);
+  fprintf(fd, "P5 ");
+  fprintf(fd, "%d ", W);
+  fprintf(fd, "%d\n", H);
+  fprintf(fd, "%d\n", MAXV);
 
   int temp;
-  for(int i = 0; i < H_INT; i++)
+  for(int i = 0; i < H; i++)
   {
-    for(int j = 0; j < W_INT; j++)
+    for(int j = 0; j < W; j++)
     {
       temp = (i+j)%255;
-      fwrite(&temp, sizeof(char), 1, FD);
+      fwrite(&temp, sizeof(char), 1, fd);
     }
   }
-  fclose(FD);
+  fclose(fd);
 
 }

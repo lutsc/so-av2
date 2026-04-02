@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <inttypes.h>
 
 // typedef struct {
 //   uint32_t w, h; 
@@ -78,27 +79,18 @@ int write_pgm(const char* path, const PGM* img)
 {
   FILE * fd = fopen(path, "wb");
 
-  const char * magic_number = "P5 ";
-  char width[32];
-  char height[32];
-  char maxv[32];
-
-  sprintf(width, "%d ", img->w);
-  sprintf(height, "%d\n", img->h);
-  sprintf(maxv, "%d\n", img->maxv);
-
-  fwrite(magic_number, sizeof(char), strlen(width), fd);
-  fwrite(width, sizeof(char), strlen(width), fd);
-  fwrite(height, sizeof(char), strlen(width), fd);
-  fwrite(maxv, sizeof(char), strlen(width), fd);
+  fprintf(fd, "P5 ");
+  fprintf(fd, "%"PRIu32" ", img->w);
+  fprintf(fd, "%"PRIu32"\n", img->h);
+  fprintf(fd, "%"PRIu8"\n", img->maxv);
 
   uint8_t temp;
   for(size_t i = 0; i < img->h; i++)
   {
     for(size_t j = 0; j < img->w; j++)
     {
-      temp = img->data[j + ((img->w-1)*i)];
-      fwrite(&temp, sizeof(char), strlen(width), fd);
+      temp = img->data[j + ((img->w)*i)];
+      fwrite(&temp, 1, 1, fd);
     }
   }
 
