@@ -3,74 +3,51 @@
 #include <stdlib.h>
 #include <string.h>
 
-// typedef struct {
-//   uint32_t w, h; 
-//   uint8_t maxv; // maxv = 255 
-//   unsigned char* data; // w*h bytes (grayscale)
-// } PGM; 
-
-
-int read_pgm(const char* path, PGM* img)
-{
-  FILE * fd = fopen(path, "rb");
-  if(fd == NULL)
-  {
-    perror("Couldn't open file");
+int read_pgm(const char* path, PGM* img){
+  // Open file
+  FILE* fd = fopen(path, "rb");
+  if(fd == NULL){
+    perror("Couldn't open file.");
     return -1;
   }
 
-  char buffer[256];
-  int ch;
-  size_t i = 0;
-  int arg = 0;
-
-  while((ch = fgetc(fd)) != EOF) //Get magic number
-  {
-    if(ch == ' ' || ch == '\n' || ch == '\t')
-    {
-      buffer[i] = '\0';
-      i = 0;
-      switch(arg)
-      {
-        case 0:
-          arg++;
-          break;
-
-        case 1:
-          // printf("%d\n", atoi(buffer));
-          img->w = atoi(buffer);
-          arg++;
-          break;
-
-        case 2:
-          // printf("%d\n", atoi(buffer));
-          img->h = atoi(buffer);
-          arg++;
-          break;
-
-        case 3:
-          // printf("%d", atoi(buffer));
-          img->maxv = atoi(buffer);
-          arg++;
-          break;
-      }
-    }
-    if(arg > 3)
-    {
-      break;
-    }
-      buffer[i] = ch;
-      i++;
+  // Ensure it is P5 and ignores comments
+  char magic[3];
+  if(fscanf(fd, "%2s", magic) != 1 || strcmp(magic, "P5") != 0){
+    fprintf(stderr, "PGM format must be P5.\n");
+    fclose(fd);
+    return -1;
   }
-  img->data = (unsigned char *)malloc((img->w * img->h));
 
-  while((ch = fgetc(fd)) != EOF)
-  {
-    img->data[i] = ch;
-    i++;
+  // Get values of w, h and maxv
+  if (fscanf(fd, "%d %d %d", &img->w, &img->h, &img->maxv) != 3) {
+    fprintf(stderr, "Invalid PGM header.\n");
+    fclose(fd);
+    return -1;
+  }
+  
+  // Skip single whitespace character after maxv
+  fgetc(fd);
+
+  // Allocate memory for image data
+  img->data = (unsigned char*)malloc(img->w * img->h);
+  if(img->data == NULL){
+    perror("Couldn't allocate memory for image data.");
+    fclose(fd);
+    return -1;
+  }
+
+  // Read image data and check if the correct amount of data was read
+  size_t read = fread(img->data, 1, img->w * img->h, fd);
+  if(read != (img->w * img->h)){
+    fprintf(stderr, "Error reading image data.\n");
+    free(img->data);
+    fclose(fd);
+    return -1;
   }
 
   fclose(fd);
+
   return 0;
 }
 
