@@ -90,3 +90,25 @@ PGM pgm_negative(PGM img)
   return img_negative;
 }
 
+PGM pgm_slice(PGM img, uint8_t x, uint8_t y)
+{
+  PGM img_slice;
+  img_slice.w = img.w;
+  img_slice.h = img.h;
+  img_slice.maxv = img.maxv;
+  img_slice.data = (unsigned char *)malloc(img.w*img.h);
+
+  for(size_t i = 0; i < (img.w*img.h); i++)
+  {
+    if(img.data[i] >= x && img_slice.data[i] <= y)
+    {
+      img_slice.data[i] = img.data[i];
+    }
+    else
+    {
+      img_slice.data[i] = 0;
+    }
+  }
+  return img_slice;
+}
+
