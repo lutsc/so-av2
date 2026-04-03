@@ -2,19 +2,18 @@
 #include <stdio.h>
 #include <pthread.h>
 #include <stdlib.h>
+#include <fcntl.h>
+#include <semaphore.h>
 
 // Task Queue (circular) + synch
 #define QMAX 128
 Task queue_buf[QMAX];
 int q_head = 0, q_tail = 0, q_count = 0;
 
-pthread_mutex_t q_lock = PTHREAD_MUTEX_INITIALIZER;
-// sem_t sem_items; // quantity of available task
-// sem_t sem_space; // free space on the queue
-
-pthread_mutex_t done_lock = PTHREAD_MUTEX_INITIALIZER;
-// sem_t sem_done; // signal when tasks are done
-// int remaining_tasks = 0;
+sem_t sem_items; // quantity of available task
+sem_t sem_space; // free space on the queue
+sem_t sem_done; // signal when tasks are done
+int remaining_tasks = 0;
 
 // Shared data for processing
 PGM g_in, g_out;
@@ -28,31 +27,47 @@ int main_worker(int argc, char** argv) {
 
   // parse_args_or_exit(); //TODO:
   const char* fifo = argv[1];
-  const char* outpth = argv[2];
+  const char* outpath = argv[2];
   const char* mode = argv[3];
 
-  if (mode == "negative") {
+  if(strcmp(mode, "negative") == 0){
     g_mode = MODE_NEG;
     g_nthreads = (argc >= 5) ? atoi(argv[4]) : 4;
-  } else if (mode == "slice") {
+  }else if(strcmp(mode, "slice") == 0){
     g_mode = MODE_SLICE;
     g_t1 = atoi(argv[4]);
     g_t2 = atoi(argv[5]);
     g_nthreads = (argc >= 7) ? atoi(argv[6]) : 4;
-  } else {
-    // exit_error("Invalid mode. Use 'negative' or 'slice'."); //TODO:
+  }else{
+    fprintf(stderr, "Invalid mode. Use 'negative' or 'slice'.");
+    return 1;
   }
 
   // 1) Ensures FIFO exists and opens for reading (blocks until sender opens for writing)
+  mkfifo(fifo, 0666);
+  int fd = open(fifo, O_RDONLY);
+  if(fd == -1) { 
+    fprintf(stderr, "Error opening FIFO for reading.");
+    return 1;
+  }
 
   // 2) Reads header + pixels from FIFO
-  
+  Header header;
+  read(fd, &header, sizeof(Header));
+  g_in.w = header.w;
+  g_in.h = header.h;
+  g_in.maxv = header.maxv;
+  size_t img_size = (size_t)header.w * (size_t)header.h;
+  g_in.data = (unsigned char*)malloc(img_size);
+  read(fd, g_in.data, img_size);
+
   // 3) Creates thread pool and task queue (doesn't need to be a thread pool)
   
   // 4) Waits for all tasks to finish
   
   // 5) Writes output image
-  
+  write_pgm(outpath, &g_out);
+
   // 6) Frees resources
   
   // 7) End
