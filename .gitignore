@@ -3,3 +3,5 @@
 .vscode/
 tests/PGM_Generator
 tests/output.pgm
+tests/arguments*
+

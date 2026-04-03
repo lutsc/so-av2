@@ -90,7 +90,7 @@ PGM pgm_negative(PGM img)
   return img_negative;
 }
 
-PGM pgm_slice(PGM img, uint8_t x, uint8_t y)
+PGM pgm_slice(PGM img, uint8_t t1, uint8_t t2)
 {
   PGM img_slice;
   img_slice.w = img.w;
@@ -100,7 +100,7 @@ PGM pgm_slice(PGM img, uint8_t x, uint8_t y)
 
   for(size_t i = 0; i < (img.w*img.h); i++)
   {
-    if(img.data[i] >= x && img_slice.data[i] <= y)
+    if(img.data[i] >= t1 && img_slice.data[i] <= t2)
     {
       img_slice.data[i] = img.data[i];
     }

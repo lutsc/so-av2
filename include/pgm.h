@@ -21,7 +21,7 @@ typedef struct {
   uint32_t w, h;
   uint8_t maxv; // image metadata
   OP_Mode mode ; // 0=NEGATIVE, 1=SLICE 
-  int32_t t1, t2; // valid if mode=SLICE 
+  uint8_t t1, t2; // valid if mode=SLICE 
 } Header;
 
 typedef struct { 
@@ -35,9 +35,11 @@ int read_pgm(const char* path, PGM* img);
 
 int write_pgm(const char* path, const PGM* img); 
 
+/* ===== PGM operations ===== */
+
 PGM pgm_negative(PGM img);
 
-PGM pgm_slice(PGM img, uint8_t x, uint8_t y);
+PGM pgm_slice(PGM img, uint8_t t1, uint8_t t2);
 
 /* ===== FIFO ===== */ 
 

@@ -18,7 +18,7 @@ pthread_mutex_t done_lock = PTHREAD_MUTEX_INITIALIZER;
 
 // Shared data for processing
 PGM g_in, g_out;
-int g_mode; // MODE_NEG or MODE_SLICE
+OP_Mode g_mode; // MODE_NEG or MODE_SLICE
 int g_t1, g_t2;
 int g_nthreads = 4;
 
