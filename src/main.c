@@ -28,10 +28,15 @@ int main(int argc, char* argv[])
 
   if(mode == MODE_SLICE)
   {
-    parse_range(arguments.range, &t1, &t2);
-    printf("%d, %d \n", t1, t2);
-    PGM slice = pgm_slice(pgm, t1, t2);
-    write_pgm(arguments.output_file, &slice);
+    bool slice_result = parse_range(arguments.range, &t1, &t2);
+    if(!slice_result)
+    {
+      PGM slice = pgm_slice(pgm, t1, t2);
+      write_pgm(arguments.output_file, &slice);
+    }
+    else{
+      exit(1);
+    }
   }
   else if(mode == MODE_NEG)
   {

@@ -55,14 +55,14 @@ OP_Mode parse_mode(char * mode)
   return -1;
 }
 
-void parse_range(char * range, uint8_t* t1, uint8_t* t2)
+int parse_range(char * range, uint8_t* t1, uint8_t* t2)
 {
   size_t break_index = 0;
   char t1_buffer[16] = {0};
   char t2_buffer[16] = {0};
   for(size_t i = 0; i < strlen(range); i++)
   {
-    if(range[i] == 'x' || range[i] == '-')
+    if(range[i] == 'x' || range[i] == '-' || range[i] == ' ' || range[i] == ',')
     {
       break_index = i;
       break;
@@ -73,6 +73,18 @@ void parse_range(char * range, uint8_t* t1, uint8_t* t2)
 
   *t1 = atoi(t1_buffer);
   *t2 = atoi(t2_buffer);
+
+  if (*t1 > *t2)
+  {
+    // perror("t2 must be greater than or equal to t1");
+    return -1;
+  }
+  else if(*t1 < 0 || *t2 < 0)
+  {
+    // perror("Values must be positive integers");
+    return -1;
+  }
+  return 0;
 }
 
 

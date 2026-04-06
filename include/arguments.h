@@ -31,7 +31,7 @@ static struct argp_option options[] =
 };
 
 OP_Mode parse_mode(char * mode);
-void parse_range(char * range, uint8_t* t1, uint8_t* t2);
+int parse_range(char * range, uint8_t* t1, uint8_t* t2);
 
 struct arguments
 {
