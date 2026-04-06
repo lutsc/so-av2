@@ -1,8 +1,10 @@
 #include "pgm.h"
 #include <stdio.h>
 #include <pthread.h>
+#include <unistd.h>
 #include <stdlib.h>
 #include <fcntl.h>
+#include <sys/stat.h>
 
 // Basic structure for Sender
 int main_sender(int argc, char** argv) {

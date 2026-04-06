@@ -7,7 +7,7 @@
 
 int read_pgm(const char* path, PGM* img){
   // Open file
-  FILE* fd = fopen(path, "O_RDONLY);");
+  FILE* fd = fopen(path, "rb");
   if(fd == NULL){
     perror("Couldn't open file.");
     return -1;
@@ -55,7 +55,7 @@ int read_pgm(const char* path, PGM* img){
 
 int write_pgm(const char* path, const PGM* img)
 {
-  FILE* fd = fopen(path, "O_WRONLY);");
+  FILE* fd = fopen(path, "wb");
   if(fd == NULL)
   {
     perror("Couldn't open file");

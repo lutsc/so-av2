@@ -1,9 +1,12 @@
 #include "pgm.h"
 #include <stdio.h>
-#include <pthread.h>
+#include <string.h>
 #include <stdlib.h>
+#include <pthread.h>
 #include <fcntl.h>
 #include <semaphore.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 // Task Queue (circular) + synch
 #define QMAX 128

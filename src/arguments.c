@@ -1,6 +1,7 @@
 #include "arguments.h"
 #include <argp.h>
 #include <string.h>
+#include <stdlib.h>
 
 error_t parse_opt (int key, char *arg, struct argp_state* state)
 {
@@ -17,37 +18,61 @@ error_t parse_opt (int key, char *arg, struct argp_state* state)
     case 'o':
       arguments->output_file = arg;
       break;
+    case 'r':
+      arguments->range = arg;
+      break;
+
     case ARGP_KEY_ARG:
       if (state->arg_num >= 2) //Too many arguments
       {
         argp_usage(state);
       }
       arguments->args[state->arg_num] = arg;
-      if(state->arg_num == 0)
-      {
-        if(strcmp(arg, "negative"))
-        {
-          arguments->mode = MODE_NEG;
-          break;
-        }
-        else if(strcmp(arg, "slice"))
-        {
-          arguments->mode = MODE_SLICE;
-          break;
-        }
-        arguments->valid = 0;
-      }
       break;
+
     case ARGP_KEY_END:
       if (state->arg_num < 2) //Not enough arguments
       {
         argp_usage(state);
       }
-      arguments->valid = 0;
       break;
     default:
-      arguments->valid = 0;
       return ARGP_ERR_UNKNOWN;
   }
   return 0;
 }
+
+OP_Mode parse_mode(char * mode)
+{
+  if(!strcmp(mode, "negative"))
+  {
+    return MODE_NEG;
+  }
+  if(!strcmp(mode, "slice"))
+  {
+    return MODE_SLICE;
+  }
+  return -1;
+}
+
+void parse_range(char * range, uint8_t* t1, uint8_t* t2)
+{
+  size_t break_index = 0;
+  char t1_buffer[16] = {0};
+  char t2_buffer[16] = {0};
+  for(size_t i = 0; i < strlen(range); i++)
+  {
+    if(range[i] == 'x' || range[i] == '-')
+    {
+      break_index = i;
+      break;
+    }
+  }
+  strncpy(t1_buffer, range, break_index);
+  strncpy(t2_buffer, &range[break_index+1], strlen(range)-break_index);
+
+  *t1 = atoi(t1_buffer);
+  *t2 = atoi(t2_buffer);
+}
+
+
