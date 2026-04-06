@@ -25,7 +25,7 @@ static struct argp_option options[] =
   {"verbose", 'v', 0, 0, "Produce verbose output"},
   {"quiet", 'q', 0, 0, "Don't produce any output"},
   {"silent", 's', 0, OPTION_ALIAS},
-  {"range", 'r', "RANGE", 0, "Specify the range for the slice operation (t1-t2)"},
+  {"range", 'r', "RANGE", 0, "Specify the range for the slice operation (T1xT2)"},
   {"output", 'o', "FILE", 0, "Output to FILE instead of modifying input"},
   // {0},
 };
