@@ -57,7 +57,7 @@ void* worker_thread(void* arg){
   pthread_exit(NULL); 
 }
 
-int main_worker(int argc, char** argv) {
+int main(int argc, char** argv) {
 
   // argv: img_worker <fifo_path> <output.pgm> <negative|slice> [t1 t2] [nthreads]
 

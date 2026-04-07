@@ -7,7 +7,7 @@
 #include <sys/stat.h>
 
 // Basic structure for Sender
-int main_sender(int argc, char** argv){
+int main(int argc, char** argv){
 
   // argv: img_sender <fifo_path> <input.pgm>
   // Sender only sends image; worker does the filtering through its CLI
