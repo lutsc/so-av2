@@ -7,19 +7,18 @@
 
 void ignoreComments(FILE *fd){
   int ch;
-  char line[100];
-  while((ch = fgetc(fd)) != EOF && isspace(ch));
-  if(ch == '#'){
-    fgets(line, sizeof(line), fd);
-    ignoreComments(fd);
+  while((ch = fgetc(fd)) != EOF && isspace(ch)); // Skips whitespace
+  if(ch == '#'){ // If is a comment
+    while((ch = fgetc(fd)) != EOF && ch != '\n'); // Skips until end of line
+    ignoreComments(fd); // Check for more comments
   }else{
-    fseek(fd, -1, SEEK_CUR);
+    ungetc(ch, fd); // Returns ch if its not a comment
   }
 } 
 
 int read_pgm(const char* path, PGM* img){
   // Open file
-  FILE* fd = fopen(path, "O_RDONLY");
+  FILE* fd = fopen(path, "rb");
   if(fd == NULL){
     perror("Couldn't open file.");
     return -1;
@@ -81,8 +80,8 @@ int read_pgm(const char* path, PGM* img){
 }
 
 int write_pgm(const char* path, const PGM* img){
-  // Read file
-  FILE* fd = fopen(path, "O_WRONLY");
+  // Open file
+  FILE* fd = fopen(path, "wb");
   if(fd == NULL){
     perror("Couldn't open file.");
     return -1;

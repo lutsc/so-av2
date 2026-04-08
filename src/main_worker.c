@@ -7,6 +7,7 @@
 #include <semaphore.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <errno.h>
 
 // Task Queue (circular) + synch
 #define QMAX 128
@@ -80,16 +81,20 @@ int main(int argc, char** argv) {
   }
 
   // 1) Ensures FIFO exists and opens for reading (blocks until sender opens for writing)
-  mkfifo(fifo, 0666);
-  int fd = open(fifo, O_RDONLY);
-  if(fd == -1) { 
+  if(mkfifo(fifo, 0666) == -1 && errno != EEXIST){
+    perror("Error creating FIFO.");
+    return 1;
+  }
+
+  FILE* fd = fopen(fifo, "rb");
+  if(fd == NULL) { 
     fprintf(stderr, "Error opening FIFO for reading.");
     return 1;
   }
 
   // 2) Reads header + pixels from FIFO
   Header header;
-  read(fd, &header, sizeof(Header));
+  fread(&header, sizeof(Header), 1, fd);
   g_in.w = header.w;
   g_in.h = header.h;
   g_in.maxv = header.maxv;
@@ -98,11 +103,10 @@ int main(int argc, char** argv) {
   g_in.data = (unsigned char*)malloc(img_size);
   if(g_in.data == NULL){
     fprintf(stderr, "Couldn't allocate memory for image data.\n");
-    close(fd);
+    fclose(fd);
     return 1;
   }
-
-  read(fd, g_in.data, img_size);
+  fread(g_in.data, sizeof(unsigned char), img_size, fd);
 
   // 3) Creates thread pool and task queue (doesn't need to be a thread pool)
   sem_init(&sem_items, 0, g_nthreads);
@@ -117,11 +121,24 @@ int main(int argc, char** argv) {
   }
   
   // 5) Writes output image
+  // g_out.w = g_in.w;
+  // g_out.h = g_in.h;
+  // g_out.maxv = g_in.maxv;
+  // g_out.data = (unsigned char*)malloc(img_size);
+  // if(g_out.data == NULL){
+  //   fprintf(stderr, "Couldn't allocate memory for output image data.\n");
+  //   free(g_in.data);
+  //   fclose(fd);
+  //   return 1;
+  // }
   write_pgm(outpath, &g_out);
   
   // 6) Frees resources
   sem_destroy(&sem_items);
-  close(fd);
+  free(g_in.data);
+  free(g_out.data);
+  fflush(fd);
+  fclose(fd);
 
   return 0;
 }

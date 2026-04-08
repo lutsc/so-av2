@@ -1,10 +1,11 @@
 #include "pgm.h"
 #include <stdio.h>
-#include <pthread.h>
-#include <unistd.h>
+// #include <pthread.h>
+// #include <unistd.h>
 #include <stdlib.h>
-#include <fcntl.h>
+// #include <fcntl.h>
 #include <sys/stat.h>
+#include <errno.h>
 
 // Basic structure for Sender
 int main(int argc, char** argv){
@@ -18,7 +19,10 @@ int main(int argc, char** argv){
   const char* inpath = argv[2];
   
   // 1) Ensure FIFO exists (mkfifo if necessary)
-  mkfifo(fifo, 0666);
+  if(mkfifo(fifo, 0666) == -1 && errno != EEXIST){
+    perror("Error creating FIFO.");
+    return 1;
+  }
   
   // 2) Read PGM image (P5) from disk
   PGM pgm;
@@ -31,21 +35,33 @@ int main(int argc, char** argv){
   header.maxv = pgm.maxv;
   
   // 4) Open FIFO for writing (blocked until worker opens for reading)
-  int fd = open(fifo, O_WRONLY);
-  if(fd == -1){
+  FILE* fd = fopen(fifo, "wb");
+  if(fd == NULL){
     perror("Error opening FIFO for writing.");
     free(pgm.data);
     return 1;
   }
 
   // 5) Send header + pixels
+  if(fwrite(&header, sizeof(Header), 1, fd) != 1){
+    fprintf(stderr, "Error writing header to FIFO.\n");
+    fclose(fd);
+    free(pgm.data);
+    return 1;
+  }
+  
   size_t img_size = ((size_t)pgm.w * (size_t)pgm.h);
-  write(fd, &header, sizeof(Header));
-  write(fd, pgm.data, img_size);
- 
+  if(fwrite(pgm.data, 1, img_size, fd) != img_size){
+    fprintf(stderr, "Error writing image data to FIFO.\n");
+    fclose(fd);
+    free(pgm.data);
+    return 1;
+  }
+
   // 6) Close FIFO and free up memory 
-  close(fd);
   free(pgm.data);
+  fflush(fd);
+  fclose(fd);
 
   return 0;
 }
