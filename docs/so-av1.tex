@@ -105,6 +105,8 @@ correção sem necessidade de sincronização na escrita dos pixels. A fila de
 tarefas é protegida por \textit{mutex} e semáforos contadores, implementando
 o padrão clássico produtor-consumidor.
 
+O código-fonte está disponível publicamente em repositório no GitHub \cite{https://github.com/lutsc/so-av1/}.
+
 \section{Fundamentação Teórica}
  
 \subsection{Comunicação entre Processos via FIFO}
@@ -171,6 +173,10 @@ compartilhado (\texttt{pgm.h}), conforme descrito a seguir.
  
 \textbf{Estruturas principais -- \texttt{pgm.h}}
 \begin{lstlisting}[language=C]
+typedef enum OP_Mode{
+  MODE_NEG, MODE_SLICE
+} OP_Mode;
+
 typedef struct{
     char type[3];
     uint32_t w, h; 
@@ -190,6 +196,12 @@ typedef struct{
     uint32_t row_end; 
 } Task;
 \end{lstlisting}
+
+A estrutura \texttt{Header} contém apenas os metadados da imagem e é
+transmitida integralmente pelo FIFO antes dos pixels. O modo de operação e
+os limiares são configurados exclusivamente via argumentos de linha de
+comando do \textit{worker}, não fazendo parte do protocolo de comunicação
+entre os processos.
  
 \subsection{Fluxo de Dados}
  
@@ -210,9 +222,8 @@ typedef struct{
 
 \textbf{Núcleo do emissor -- \texttt{img\_sender.c}}
 \begin{lstlisting}[language=C, texcl=true]
-
 // Garante existência da FIFO
-    if(mkfifo(args.fifo, 0666) == -1 && errno != EEXIST){
+if(mkfifo(args.fifo, 0666) == -1 && errno != EEXIST){
     perror("Error creating FIFO.");
     return 1;
 }
@@ -220,7 +231,6 @@ typedef struct{
 // Lê a imagem PGM do disco, decompõe seus metadados e pixels, e os separa nas variáveis PGM e Header
 PGM pgm;
 read_pgm(args.input_file, &pgm);
-
 Header header;
 header.w = pgm.w;
 header.h = pgm.h;
@@ -256,7 +266,7 @@ fflush(fd);
 fclose(fd);
 \end{lstlisting}
 
-\subsection{Processo Trabalhador (Worker)}
+\subsection{Processo Trabalhador (Worker)} 
 
 \subsection{Filtros}
  
@@ -271,9 +281,9 @@ void apply_negative_block(int rs, int re){
   }
 }
 
-void apply_slice_block(int rs, int re, int t1, int t2){
+void apply_slice_block(size_t rs, size_t re, uint8_t t1, uint8_t t2){
   size_t i;
-  for(size_t row = rs; row < re; row++){
+  for(size_t row = rs; row <= re; row++){
     for(size_t column = 0; column < g_in.w; column++){
       i = (g_in.w * row) + column;
       if(g_in.data[i] >= t1 && g_in.data[i] <= t2){
@@ -286,14 +296,69 @@ void apply_slice_block(int rs, int re, int t1, int t2){
 }
 \end{lstlisting}
 
-\section{Resultados}
+% \section{Resultados}
 
-\subsection{Correção dos Filtros}
+% \subsection{Correção dos Filtros}
 
-Os filtros foram validados visualmente através do VIMIV, comparando a
-imagem original às imagens processadas. O filtro negativo produziu a
-inversão correta dos tons de cinza conforme a equação. O filtro
-de limiarização com fatiamento preservou os pixels pertencentes ao intervalo
-$[t_1, t_2]$ e zerou os demais, em conformidade com a equação.
+% Os filtros foram validados visualmente através do VIMIV, comparando a
+% imagem original às imagens processadas. O filtro negativo produziu a
+% inversão correta dos tons de cinza conforme a equação. O filtro
+% de limiarização com fatiamento preservou os pixels pertencentes ao intervalo
+% $[t_1, t_2]$ e zerou os demais, em conformidade com a equação.
+
+\section{Análise e Discussão}
+ 
+\subsection{Abordagem de Fila Estática}
+ 
+A escolha por uma fila pré-calculada com 128 tarefas simplifica o código ao
+eliminar a necessidade de semáforos separados para produção e consumo. As
+tarefas são calculadas uma única vez antes da criação das \textit{threads} e
+permanecem imutáveis durante toda a execução, tornando a leitura de
+\texttt{queue\_buf} thread-safe sem proteção adicional.
+ 
+A granularidade fixa de 128 tarefas independe do número de \textit{threads}
+configurado, o que permite que poucas \textit{threads} processem muitas
+tarefas ou vice-versa. Com \texttt{QMAX = 128} e imagens de 4096 linhas, cada
+tarefa cobre 32 linhas, reduzindo o \textit{overhead} de sincronização em
+comparação a tarefas por pixel.
+ 
+\subsection{Semáforo como Controle de Concorrência}
+ 
+O semáforo único inicializado com \texttt{g\_nthreads} atua como um
+\textit{throttle}: no máximo \texttt{g\_nthreads} \textit{threads} executam
+a seção crítica ao mesmo tempo. Isso garante que \texttt{q\_count} seja
+incrementado de forma segura e que cada entrada de \texttt{queue\_buf} seja
+processada exatamente uma vez, sem \textit{mutex} explícito.
+ 
+\subsection{Semântica do Filtro de Fatiamento}
+ 
+É importante notar que a implementação do filtro de limiarização com
+fatiamento adota semântica de \textit{realce de banda}: pixels dentro do
+intervalo $[t_1, t_2]$ são mantidos e os demais são zerados (preto), em
+contraste com a versão que suprime os pixels da banda atribuindo-lhes o
+valor 255 (branco). A escolha da saída para pixels fora da banda -- zero ou
+255 -- define se o fundo é preto ou branco e deve ser documentada junto aos
+parâmetros de execução.
+ 
+\subsection{Comunicação via FIFO}
+ 
+O uso de FIFO nomeado demonstrou a transparência da abstração de arquivo do
+Unix: os dois processos utilizam \texttt{fopen}/\texttt{fread}/\texttt{fwrite}
+de forma idêntica a arquivos regulares. A sincronização implícita na abertura
+do FIFO elimina a necessidade de \textit{handshake} externo, e a verificação
+do retorno de \texttt{fwrite} no \textit{sender} garante a detecção de
+eventuais falhas na transmissão.
+
+\section{Conclusão}
+
+O sistema desenvolvido demonstrou com sucesso a aplicação conjunta de IPC
+via FIFO nomeado, processamento paralelo com \textit{threads} Pthreads
+coordenadas por semáforo, e filtros de processamento digital de imagem. A
+abordagem de fila estática pré-calculada mostrou-se simples e correta:
+as 128 tarefas são distribuídas entre as \textit{threads} de forma segura,
+sem condições de corrida, e o processamento é concluído antes de
+\texttt{write\_pgm} gravar o resultado. Os resultados consolidam os conceitos
+de processos, IPC, \textit{threads}, paralelismo e sincronização estudados
+ao longo da disciplina de Sistemas Operacionais.
 
 \end{document}
