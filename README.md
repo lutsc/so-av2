@@ -4,6 +4,7 @@
 ```
 $ git clone https://github.com/lutsc/so-av2
 $ cd so-av2
+
 $ cd build
 $ cmake ..
 $ make
