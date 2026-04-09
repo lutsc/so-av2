@@ -3,7 +3,7 @@
 #include <string.h>
 #include <stdlib.h>
 
-uint8_t parse_range(char * range, uint8_t* t1, uint8_t* t2)
+int32_t parse_range(char * range, uint8_t* t1, uint8_t* t2)
 {
   size_t break_index = 0;
   char t1_buffer[16] = {0};

@@ -11,7 +11,7 @@
 #include <errno.h>
 
 // Task Queue (circular) + synch
-#define QMAX 4  //NOTE: Will be 128
+#define QMAX 128  
 Task queue_buf[QMAX];
 
 // int q_head = 0, q_tail = 0, q_count = 0;
@@ -40,7 +40,6 @@ void apply_negative_block(int rs, int re){
     }
   }
   printf("Exiting negative block, rs: %d, re: %d\n", rs, re);
-  pthread_exit(NULL);
 }
 
 void apply_slice_block(int rs, int re, int t1, int t2){
@@ -56,7 +55,6 @@ void apply_slice_block(int rs, int re, int t1, int t2){
       }
     }
   }
-  pthread_exit(NULL);
 }
 
 
@@ -76,7 +74,11 @@ void* worker_thread(void* arg){
       apply_slice_block(rs,re, g_t1, g_t2);
     }
     sem_post(&sem);
-  } pthread_exit(NULL); 
+    if(q_count >= QMAX)
+    {
+      pthread_exit(NULL); 
+    }
+  } 
 }
 
 struct argp argp = {options_worker, parse_opt_worker, args_doc_woker, doc_worker};
@@ -163,6 +165,7 @@ int main(int argc, char** argv) {
     queue_buf[i].row_end = i*(Q_Rows)+ (Q_Rows)-1;
     printf("Queue_buf[%zu].row_start = %d\nQueue_buf[%zu].row_end = %d\n",i, queue_buf[i].row_start, i, queue_buf[i].row_end);
   }
+  queue_buf[QMAX-1].row_end = header.h-1;
 
   // 3) Creates thread pool and task queue (doesn't need to be a thread pool)
   sem_init(&sem, 0, g_nthreads);

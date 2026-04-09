@@ -51,7 +51,7 @@ error_t parse_opt_worker (int key, char *arg, struct argp_state *state);
 OP_Mode parse_mode(char * mode);
 
 // Takes a string and extracts t1 and t2 from it, returns 0 on success and -1 on error
-uint8_t parse_range(char * range, uint8_t* t1, uint8_t* t2);
+int32_t parse_range(char * range, uint8_t* t1, uint8_t* t2);
 
 void init_args_worker(struct arguments_worker * args);
 
