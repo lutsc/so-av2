@@ -49,9 +49,12 @@ void apply_slice_block(size_t rs, size_t re, uint8_t t1, uint8_t t2){
 // Thread
 void* worker_thread(void* arg){
   while(1){
+
     sem_wait(&sem);
     Task task = queue_buf[q_count];
     q_count++;
+    sem_post(&sem);
+
     uint32_t rs = task.row_start, re = task.row_end;
     if(g_mode == MODE_NEG)
     {
@@ -61,7 +64,6 @@ void* worker_thread(void* arg){
     {
       apply_slice_block(rs,re, g_t1, g_t2);
     }
-    sem_post(&sem);
     if(q_count >= QMAX)
     {
       pthread_exit(NULL); 
