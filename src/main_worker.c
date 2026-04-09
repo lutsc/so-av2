@@ -11,14 +11,18 @@
 #include <errno.h>
 
 // Task Queue (circular) + synch
-#define QMAX 128
+#define QMAX 4  //NOTE: Will be 128
 Task queue_buf[QMAX];
-int q_head = 0, q_tail = 0, q_count = 0;
 
-sem_t sem_items; // quantity of available task
-sem_t sem_space; // free space on the queue
-sem_t sem_done; // signal when tasks are done
-int remaining_tasks = 0;
+// int q_head = 0, q_tail = 0, q_count = 0;
+uint32_t q_count = 0;
+
+// sem_t sem_items; // quantity of available task
+// sem_t sem_space; // free space on the queue
+// sem_t sem_done; // signal when tasks are done
+// int remaining_tasks = 0;
+
+sem_t sem;
 
 // Shared data for processing
 PGM g_in, g_out;
@@ -29,16 +33,19 @@ uint32_t g_nthreads = 4;
 // Filters
 void apply_negative_block(int rs, int re){
   size_t i;
-  for(size_t row = rs; row < re; row++){
+  for(size_t row = rs; row <= re; row++){
     for(size_t column = 0; column < g_in.w; column++){
       i = (g_in.w * row) + column;
       g_out.data[i] = (g_in.maxv - g_in.data[i]);
     }
   }
+  printf("Exiting negative block, rs: %d, re: %d\n", rs, re);
+  pthread_exit(NULL);
 }
 
 void apply_slice_block(int rs, int re, int t1, int t2){
   size_t i;
+
   for(size_t row = rs; row < re; row++){
     for(size_t column = 0; column < g_in.w; column++){
       i = (g_in.w * row) + column;
@@ -49,14 +56,27 @@ void apply_slice_block(int rs, int re, int t1, int t2){
       }
     }
   }
+  pthread_exit(NULL);
 }
+
 
 // Thread
 void* worker_thread(void* arg){
   while(1){
-    
-  }
-  pthread_exit(NULL); 
+    sem_wait(&sem);
+    Task task = queue_buf[q_count];
+    q_count++;
+    uint32_t rs = task.row_start, re = task.row_end;
+    if(g_mode == MODE_NEG)
+    {
+      apply_negative_block(rs, re);
+    }
+    else if(g_mode == MODE_SLICE)
+    {
+      apply_slice_block(rs,re, g_t1, g_t2);
+    }
+    sem_post(&sem);
+  } pthread_exit(NULL); 
 }
 
 struct argp argp = {options_worker, parse_opt_worker, args_doc_woker, doc_worker};
@@ -64,7 +84,7 @@ int main(int argc, char** argv) {
 
   // argv: img_worker <fifo_path> <output.pgm> <negative|slice> [t1 t2] [nthreads]
 
-  // parse_args_or_exit(); //TODO:
+  // parse_args_or_exit(); //TODO: 
   // const char* fifo = argv[1];
   // const char* outpath = argv[2];
   // const char* mode = argv[3];
@@ -113,16 +133,39 @@ int main(int argc, char** argv) {
   g_in.maxv = header.maxv;
 
   size_t img_size = ((size_t)g_in.w * (size_t)g_in.h);
-  g_in.data = (unsigned char*)malloc(img_size);
+  g_in.data = (uint8_t*)malloc(img_size);
   if(g_in.data == NULL){
     fprintf(stderr, "Couldn't allocate memory for image data.\n");
     fclose(fd);
     return 1;
   }
-  fread(g_in.data, sizeof(unsigned char), img_size, fd);
+  fread(g_in.data, 1, img_size, fd);
+  
+  // 5) Writes output image
+  g_out.w = g_in.w;
+  g_out.h = g_in.h;
+  g_out.maxv = g_in.maxv;
+  g_out.data = (uint8_t *)malloc(img_size);
+  if(g_out.data == NULL){
+    fprintf(stderr, "Couldn't allocate memory for output image data.\n");
+    return -1;
+  }
+
+  // Init tasks
+  int32_t Q_Rows;
+  Q_Rows = header.h / QMAX;
+
+  printf("WxH: %dx%d\n", header.w, header.h);
+  printf("Q_Rows: %d\n", Q_Rows);
+  for (size_t i = 0; i < QMAX; i++)
+  {
+    queue_buf[i].row_start = i*(Q_Rows);
+    queue_buf[i].row_end = i*(Q_Rows)+ (Q_Rows)-1;
+    printf("Queue_buf[%zu].row_start = %d\nQueue_buf[%zu].row_end = %d\n",i, queue_buf[i].row_start, i, queue_buf[i].row_end);
+  }
 
   // 3) Creates thread pool and task queue (doesn't need to be a thread pool)
-  sem_init(&sem_items, 0, g_nthreads);
+  sem_init(&sem, 0, g_nthreads);
   pthread_t threads[g_nthreads];
   for(int i = 0; i < g_nthreads; i++){
     pthread_create(&threads[i], NULL, worker_thread, NULL);
@@ -132,24 +175,17 @@ int main(int argc, char** argv) {
   for(int i = 0; i < g_nthreads; i++){
     pthread_join(threads[i], NULL);
   }
-  
-  // 5) Writes output image
-  // g_out.w = g_in.w;
-  // g_out.h = g_in.h;
-  // g_out.maxv = g_in.maxv;
-  // g_out.data = (unsigned char*)malloc(img_size);
-  // if(g_out.data == NULL){
-  //   fprintf(stderr, "Couldn't allocate memory for output image data.\n");
+
+  //
   //   free(g_in.data);
   //   fclose(fd);
   //   return 1;
   // }
 
-
   write_pgm(args.output_file, &g_out);
   
   // 6) Frees resources
-  sem_destroy(&sem_items);
+  sem_destroy(&sem);
   free(g_in.data);
   free(g_out.data);
   fflush(fd);
