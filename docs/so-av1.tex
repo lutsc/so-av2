@@ -72,16 +72,29 @@
     % Code for adding tables
 
 \autor{Lucas Tasca, Melkior Gabriel Paim Misiak}
-\titulo{Sistemas Operacionais | Avaliação M1 \\ IPC, Threads e Paralelismo}
-\instituicao{Universidade do Vale do Itajaí}
+\titulo{Avaliação M1 \\ IPC, Threads e Paralelismo}
+\orientador{Felipe Viel}
+\instituicao{Universidade do Vale do Itajaí - UNIVALI\\ Sistemas Operacionais}
 \local{Itajaí - Santa Catarina}
 \data{\today}
 
 \begin{document}
 
-\imprimircapa
+\imprimirfolhaderosto
 
 \tableofcontents*
 \clearpage
+
+\section{Introdução}
+
+Este projeto apresenta a implementação de um sistema de processamento de imagens do tipo PGM P5 (Portable Gray Map em binário), 
+utilizando a linguagem de programação C, com o objetivo de consolidar o aprendizado de IPC, concorrência, threads e paralelismo.
+
+O sistema é dividido dois processos: $sender$ e $worker$, onde o $sender$ é responsável por ler uma imagem do tipo PGM P5, 
+decompõe seus metadados e pixels e os envia a uma FIFO, enquanto o $worker$ é responsável por ler o que foi enviado à FIFO, 
+processando os dados por um filtro escolhido e dividindo as tarefas de processamento entre uma quantidade de threads, 
+ambos dados por argumentos, e por fim escrevendo a imagem resultante.
+
+\section{Implementação}
 
 \end{document}
