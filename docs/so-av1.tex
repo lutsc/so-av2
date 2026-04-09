@@ -124,44 +124,42 @@ fornece as primitivas necessárias:
 \begin{itemize}
   \item \texttt{pthread\_create} -- criação de \textit{threads};
   \item \texttt{pthread\_join} -- aguardar o término de uma \textit{thread};
-%   \item \texttt{pthread\_mutex\_t} -- exclusão mútua para seções críticas.
+  \item \texttt{pthread\_exit} -- encerramento da \textit{thread} atual.
 \end{itemize}
  
-% \subsection{Semáforos}
+\subsection{Semáforos}
  
-% Semáforos contadores (\texttt{sem\_t}) coordenam produção e consumo de
-% recursos. Neste projeto são utilizados três semáforos:
- 
-% \begin{itemize}
-%   \item \texttt{sem\_items} -- conta tarefas disponíveis na fila;
-%   \item \texttt{sem\_space} -- conta espaços livres na fila (backpressure);
-%   \item \texttt{sem\_done} -- sinaliza ao processo principal que todas as
-%         tarefas foram concluídas.
-% \end{itemize}
+Semáforos contadores (\texttt{sem\_t}) são mecanismos de sincronização que
+controlam o acesso concorrente a recursos compartilhados. Neste projeto é
+utilizado um único semáforo \texttt{sem}, inicializado com o número de
+\textit{threads} \texttt{g\_nthreads}. Ele regula quantas \textit{threads}
+podem acessar simultaneamente a fila de tarefas e executar o processamento,
+atuando como guarda de exclusão mútua da seção crítica composta pelo
+dequeue e pelo processamento do bloco de linhas.
  
 \subsection{Filtros de Processamento de Imagem}
  
-\subsubsection{Filtro Negativo}
- 
-Transformação linear que inverte os tons de cinza:
- 
-\begin{equation}
-  s = 255 - r
-  \label{eq:neg}
-\end{equation}
- 
 Onde $r$ é o valor do pixel de entrada e $s$ é o pixel de saída.
- 
+
+\subsubsection{Filtro Negativo}
+
+Transformação linear que inverte os tons de cinza:
+
+\begin{equation}
+  s = \mathtt{maxv} - r
+\end{equation}
+
+$\mathtt{maxv}$ é o valor máximo definido no cabeçalho PGM (tipicamente 255).
+
 \subsubsection{Limiarização com Fatiamento}
  
-Preserva os pixels dentro do intervalo $[t_1, t_2]$ e suprime os demais:
+Preserva os pixels dentro do intervalo $[t_1, t_2]$ e zera os demais:
  
 \begin{equation}
   s = \begin{cases}
-    255 & \text{se } r \leq t_1 \text{ ou } r \geq t_2 \\
-    r   & \text{se } t_1 < r < t_2
+    r & \text{se } t_1 \leq r \leq t_2 \\
+    0 & \text{caso contrário}
   \end{cases}
-  \label{eq:slice}
 \end{equation}
 
 \section{Arquitetura da Solução}
@@ -210,75 +208,92 @@ typedef struct{
 
 \subsection{Processo Emissor (Sender)}
 
-Primeiramente, o processo emissor cria a FIFO, caso ela não exista.
+\textbf{Núcleo do emissor -- \texttt{img\_sender.c}}
+\begin{lstlisting}[language=C, texcl=true]
 
-\begin{lstlisting}[language=C]
-    mkfifo(args.fifo, 0666);
-\end{lstlisting}
-
-O emissor então lê a imagem PGM P5, decompõe seus metadados e pixels, 
-e os separando nas variáveis PGM e Header, respectivamente.
-
-\begin{lstlisting}[language=C]
-    PGM pgm;
-    read_pgm(args.input_file, &pgm);
-
-    Header header;
-    header.w = pgm.w;
-    header.h = pgm.h;
-    header.maxv = pgm.maxv;
-\end{lstlisting}
-
-O emissor abre a FIFO para escrita em binário, o que bloqueia o processo emissor até que o 
-processo trabalhador a abra para leitura.
-
-\begin{lstlisting}[language=C]
-    FILE* fd = fopen(args.fifo, "wb");
-\end{lstlisting}
-
-O emissor então escreve os metadados e os pixels da imagem na FIFO, para que o 
-processo trabalhador possa ler.
-
-\begin{lstlisting}[language=C]
-  fwrite(&header, sizeof(Header), 1, fd);
-  fwrite(pgm.data, 1, img_size, fd);
-\end{lstlisting}
-
-Enfim a FIFO é fechada e os recursos alocados para a imagem são liberados.
-
-\begin{lstlisting}[language=C]
-    free(pgm.data);
-    fflush(fd);
-    fclose(fd);
-\end{lstlisting}  
-
-% \subsection{Processo Trabalhador (Worker)}
-
-% Novamente, o processo trabalhador garante que a FIFO exista, criando-a caso necessário.
-
-% \begin{lstlisting}[language=C]
-%   mkfifo(args.fifo, 0666);
-% \end{lstlisting}  
+// Garante existência da FIFO
+    if(mkfifo(args.fifo, 0666) == -1 && errno != EEXIST){
+    perror("Error creating FIFO.");
+    return 1;
+}
   
-% A FIFO é então aberta para leitura em binário, o que bloqueia o processo trabalhador até que o
-% processo emissor a abra para escrita.
+// Lê a imagem PGM do disco, decompõe seus metadados e pixels, e os separa nas variáveis PGM e Header
+PGM pgm;
+read_pgm(args.input_file, &pgm);
 
-% \begin{lstlisting}[language=C]
-%     FILE* fd = fopen(args.fifo, "rb");
-% \end{lstlisting}  
+Header header;
+header.w = pgm.w;
+header.h = pgm.h;
+header.maxv = pgm.maxv;
+  
+// Abre a FIFO para escrita em binário, bloqueando até que o processo trabalhador a abra para leitura
+FILE* fd = fopen(args.fifo, "wb");
+if(fd == NULL){
+    perror("Error opening FIFO for writing.");
+    free(pgm.data);
+    return 1;
+}
 
-% O processo trabalhador então lê os metadados e os pixels da imagem da FIFO,
-% armazenando-os na variável g_in.
+// Garante o envio dos metadados e os pixels da imagem para a FIFO
+if(fwrite(&header, sizeof(Header), 1, fd) != 1){
+    fprintf(stderr, "Error writing header to FIFO.\n");
+    fclose(fd);
+    free(pgm.data);
+    return 1;
+}
 
-% \begin{lstlisting}[language=C]
-%     fread(&header, sizeof(Header), 1, fd);
-%     g_in.w = header.w;
-%     g_in.h = header.h;
-%     g_in.maxv = header.maxv;
+size_t img_size = ((size_t)pgm.w * (size_t)pgm.h);
+if(fwrite(pgm.data, 1, img_size, fd) != img_size){
+    fprintf(stderr, "Error writing image data to FIFO.\n");
+    fclose(fd);
+    free(pgm.data);
+    return 1;
+}
 
-%     g_in.data = (unsigned char*)malloc(img_size);    
-%     fread(g_in.data, sizeof(unsigned char), img_size, fd);
-% \end{lstlisting}  
+// Fecha FIFO e libera recursos alocados
+free(pgm.data);
+fflush(fd);
+fclose(fd);
+\end{lstlisting}
 
+\subsection{Processo Trabalhador (Worker)}
+
+\subsection{Filtros}
+ 
+\begin{lstlisting}[language=C, texcl=true]
+void apply_negative_block(int rs, int re){
+  size_t i;
+  for(size_t row = rs; row <= re; row++){
+    for(size_t column = 0; column < g_in.w; column++){
+      i = (g_in.w * row) + column;
+      g_out.data[i] = (g_in.maxv - g_in.data[i]);
+    }
+  }
+}
+
+void apply_slice_block(int rs, int re, int t1, int t2){
+  size_t i;
+  for(size_t row = rs; row < re; row++){
+    for(size_t column = 0; column < g_in.w; column++){
+      i = (g_in.w * row) + column;
+      if(g_in.data[i] >= t1 && g_in.data[i] <= t2){
+        g_out.data[i] = g_in.data[i];
+      }else{
+        g_out.data[i] = 0;
+      }
+    }
+  }
+}
+\end{lstlisting}
+
+\section{Resultados}
+
+\subsection{Correção dos Filtros}
+
+Os filtros foram validados visualmente através do VIMIV, comparando a
+imagem original às imagens processadas. O filtro negativo produziu a
+inversão correta dos tons de cinza conforme a equação. O filtro
+de limiarização com fatiamento preservou os pixels pertencentes ao intervalo
+$[t_1, t_2]$ e zerou os demais, em conformidade com a equação.
 
 \end{document}
