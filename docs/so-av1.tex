@@ -10,6 +10,7 @@
 \usepackage{mathrsfs}
 \usepackage{lmodern}
 \usepackage{hyperref}
+\usepackage{listings}
 \hypersetup{
     colorlinks=true,
     linkcolor=blue,
@@ -96,5 +97,52 @@ processando os dados por um filtro escolhido e dividindo as tarefas de processam
 ambos dados por argumentos, e por fim escrevendo a imagem resultante.
 
 \section{Implementação}
+
+\subsection{Processo Emissor (Sender)}
+
+Primeiramente, o processo emissor cria a FIFO, caso ela não exista.
+
+\begin{lstlisting}[language=C]
+    mkfifo(args.fifo, 0666);
+\end{lstlisting}
+
+O emissor então lê a imagem PGM P5, decompõe seus metadados e pixels, 
+e os separando nas variáveis PGM e Header, respectivamente.
+
+\begin{lstlisting}[language=C]
+    PGM pgm;
+    read_pgm(args.input_file, &pgm);
+
+    Header header;
+    header.w = pgm.w;
+    header.h = pgm.h;
+    header.maxv = pgm.maxv;
+\end{lstlisting}
+
+O emissor abre a FIFO para escrita em binário, o que bloqueia o processo emissor até que o 
+processo trabalhador a abra para leitura.
+
+\begin{lstlisting}[language=C]
+    FILE* fd = fopen(args.fifo, "wb");
+\end{lstlisting}
+
+O emissor então escreve os metadados e os pixels da imagem na FIFO, para que o 
+processo trabalhador possa ler.
+
+\begin{lstlisting}[language=C]
+  fwrite(&header, sizeof(Header), 1, fd);
+  fwrite(pgm.data, 1, img_size, fd);
+\end{lstlisting}
+
+Enfim a FIFO é fechada e os recursos alocados para a imagem são liberados.
+
+\begin{lstlisting}[language=C]
+    free(pgm.data);
+    fflush(fd);
+    fclose(fd);
+\end{lstlisting}  
+
+\subsection{Processo Trabalhador (Worker)}
+
 
 \end{document}
